@@ -1,0 +1,46 @@
+# configs/config.yaml
+
+dataset:
+  standard:
+    name: "LFW"
+    path: "/kaggle/input/lfw-dataset/lfw"
+    num_classes: 5749
+  training:
+    name: "MS1MV3"
+    path: "/kaggle/input/ms1mv3-subset/ms1mv3"
+    num_classes: 10000      # 用子集，取前1万个人
+  nonstandard:
+    name: "IJB-C"
+    path: "/kaggle/input/ijbc-dataset/ijbc"
+
+preprocess:
+  face_size: [112, 112]     # ResNet50 输入尺寸
+  detect_size: [640, 640]   # YOLOv12 检测尺寸
+  mean: [0.5, 0.5, 0.5]
+  std: [0.5, 0.5, 0.5]
+
+augmentation:
+  horizontal_flip: 0.5
+  rotation_degrees: 15
+  brightness: 0.3
+  contrast: 0.3
+  small_face_scale_min: 0.05  # 小尺度人脸增强，最小缩放比例
+  small_face_scale_max: 0.3
+  cutout_prob: 0.3
+
+model:
+  backbone: "resnet50"
+  embedding_dim: 512
+  num_classes: 10000
+
+training:
+  batch_size: 64
+  epochs: 30
+  lr: 0.1
+  weight_decay: 5e-4
+  checkpoint_dir: "/kaggle/working/checkpoints"
+  save_every: 5             # 每5个epoch保存一次
+
+database:
+  feature_dim: 512
+  similarity_threshold: 0.4  # 余弦相似度阈值
