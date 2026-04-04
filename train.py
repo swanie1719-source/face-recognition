@@ -11,6 +11,7 @@ import struct
 from tqdm import tqdm
 from PIL import Image
 import cv2
+from data.ms1m_dataset import MS1MStreamDataset
 
 # ── 路径配置 ──────────────────────────────────────────
 MS1M_REC   = "/kaggle/input/datasets/thnhnguyntrng/faces-ms1mrefinev2-112x112/faces_emore/train.rec"
