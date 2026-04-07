@@ -44,11 +44,13 @@ def load_lfw_bin(bin_path):
 def evaluate_lfw(model, bins, labels, device, batch_size=64):
     """
     在 LFW 上评估模型
-    计算 TAR@FAR 和准确率
+    bins:   12000 张图片的字节数据（两两一对）
+    labels: 6000 个标签（1=同一人，0=不同人）
     """
     model.eval()
-    features = []
 
+    # 先把所有图片的特征提取出来
+    all_features = []
     with torch.no_grad():
         for i in range(0, len(bins), batch_size):
             batch_bins = bins[i:i+batch_size]
@@ -62,33 +64,33 @@ def evaluate_lfw(model, bins, labels, device, batch_size=64):
                 img = torch.tensor(img).permute(2, 0, 1).float()
                 img = (img / 255.0 - 0.5) / 0.5
                 imgs.append(img)
+            batch  = torch.stack(imgs).to(device)
+            feats  = model(batch)
+            all_features.append(feats.cpu().numpy())
 
-            batch = torch.stack(imgs).to(device)
-            feat  = model(batch)
-            features.append(feat.cpu().numpy())
+    all_features = np.concatenate(all_features, axis=0)
+    # all_features: [12000, 512]
+    # labels:       [6000]  ← 每对一个标签
 
-    features = np.concatenate(features, axis=0)
-    labels   = np.array(labels)
+    labels = np.array(labels).astype(int)  # True→1, False→0
 
     # 计算每对图片的余弦相似度
     scores = []
-    for i in range(0, len(labels), 2):
-        if i + 1 >= len(features):
-            break
-        f1 = features[i]
-        f2 = features[i+1]
-        score = np.dot(f1, f2)
+    for i in range(len(labels)):
+        f1 = all_features[i * 2]        # 第一张
+        f2 = all_features[i * 2 + 1]   # 第二张
+        score = np.dot(f1, f2)          # 已L2归一化，内积=余弦相似度
         scores.append(score)
 
-    scores = np.array(scores)
-    pairs  = labels[:len(scores)*2:2] if len(labels) > 0 else labels
+    scores = np.array(scores)           # [6000]
+    labels = labels[:len(scores)]       # [6000]
 
     # 找最优阈值
     best_acc = 0
     best_thr = 0
     for thr in np.arange(-1, 1, 0.01):
         preds = (scores > thr).astype(int)
-        acc   = (preds == pairs[:len(preds)]).mean()
+        acc   = (preds == labels).mean()
         if acc > best_acc:
             best_acc = acc
             best_thr = thr
