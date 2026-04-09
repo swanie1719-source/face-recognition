@@ -1,0 +1,35 @@
+# 权重文件
+weights/
+*.pt
+*.pth
+*.onnx
+
+# 数据库文件
+face_db/
+
+# Python缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.idea/
+.vscode/
+
+# 测试输出文件
+detection_result.jpg
+testphoto/
+test_*.py
+
+# 数据集
+*.bin
+*.rec
+*.idx
+
+# 下载脚本（不需要上传）
+download_weights.py
+download_insightface.py
+
+# 其他
+.DS_Store
