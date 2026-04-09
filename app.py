@@ -24,11 +24,10 @@ st.caption("ResNet50 + ArcFace | LFW 准确率 94.72%")
 @st.cache_resource
 def load_system():
     return FaceRecognitionSystem(
-        detector_weights   = "weights/model.pt",
-        recognizer_weights = "weights/best_model.pth",
-        db_path            = "face_db/",
-        conf_threshold     = 0.5,
-        sim_threshold      = 0.4
+        detector_weights = "weights/model.pt",
+        db_path          = "face_db/",
+        conf_threshold   = 0.5,
+        sim_threshold    = 0.35
     )
 
 
