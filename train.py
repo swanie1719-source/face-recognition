@@ -213,7 +213,8 @@ def train():
     model = FaceModel(
         num_classes   = dataset.num_classes,
         embedding_dim = CFG['embedding_dim'],
-        pretrained    = True
+        pretrained    = True,
+        use_cbam = True  # ← 加这行
     ).to(device)
 
     # 优化器和学习率调度

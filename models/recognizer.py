@@ -168,11 +168,13 @@ class FaceModel(nn.Module):
     """
 
     def __init__(self, num_classes=2000,
-                 embedding_dim=512, pretrained=True):
+                 embedding_dim=512, pretrained=True,
+                 use_cbam=True):   # ← 加 use_cbam 参数
         super().__init__()
         self.recognizer = FaceRecognizer(
-            embedding_dim=embedding_dim,
-            pretrained=pretrained
+            embedding_dim = embedding_dim,
+            pretrained    = pretrained,
+            use_cbam      = use_cbam   # ← 传递给 FaceRecognizer
         )
         self.arcface = ArcFaceLoss(
             in_features=embedding_dim,
