@@ -77,52 +77,85 @@ class ArcFaceLoss(nn.Module):
         loss = F.cross_entropy(output, labels)
         return loss
 
+class CBAM(nn.Module):
+    """
+    Convolutional Block Attention Module
+    论文：CBAM: Convolutional Block Attention Module (ECCV 2018)
+    在通道和空间两个维度上做注意力，让模型聚焦人脸关键区域
+    """
+    def __init__(self, channels, reduction=16):
+        super().__init__()
+
+        # 通道注意力：学习哪些特征通道更重要
+        self.channel_att = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(channels, channels // reduction),
+            nn.ReLU(inplace=True),
+            nn.Linear(channels // reduction, channels),
+            nn.Sigmoid()
+        )
+
+        # 空间注意力：学习哪些空间位置更重要（眼睛、鼻子等）
+        self.spatial_att = nn.Sequential(
+            nn.Conv2d(2, 1, kernel_size=7, padding=3, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        # 通道注意力
+        ca = self.channel_att(x)
+        ca = ca.view(x.size(0), -1, 1, 1)
+        x  = x * ca
+
+        # 空间注意力
+        avg = torch.mean(x, dim=1, keepdim=True)
+        mx  = torch.max(x,  dim=1, keepdim=True)[0]
+        sa  = self.spatial_att(torch.cat([avg, mx], dim=1))
+        x   = x * sa
+
+        return x
 
 # ── ResNet50 特征提取器 ────────────────────────────────
 class FaceRecognizer(nn.Module):
-    """
-    ResNet50 人脸特征提取器
-    输入：[B, 3, 112, 112] 对齐人脸图片
-    输出：[B, 512] L2归一化特征向量
-    """
-
-    def __init__(self, embedding_dim=512, pretrained=True):
+    def __init__(self, embedding_dim=512, pretrained=True,
+                 use_cbam=True):
         super().__init__()
 
-        # 加载预训练 ResNet50
-        weights = ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
+        weights  = ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
         backbone = resnet50(weights=weights)
 
-        # 去掉最后的分类层，保留特征提取部分
+        # 去掉最后的分类层
         self.backbone = nn.Sequential(
             *list(backbone.children())[:-2]
-        )  # 输出 [B, 2048, 4, 4]
+        )
 
-        # 全局平均池化
-        self.gap = nn.AdaptiveAvgPool2d(1)  # [B, 2048, 1, 1]
+        # CBAM 注意力模块（插在骨干网络输出后）
+        self.use_cbam = use_cbam
+        if use_cbam:
+            self.cbam = CBAM(channels=2048, reduction=16)
+            print("CBAM 注意力模块已启用")
 
-        # BN → FC → BN
+        self.gap = nn.AdaptiveAvgPool2d(1)
         self.bn1 = nn.BatchNorm2d(2048)
-        self.fc = nn.Linear(2048, embedding_dim)
+        self.fc  = nn.Linear(2048, embedding_dim)
         self.bn2 = nn.BatchNorm1d(embedding_dim)
 
-        # 初始化
         nn.init.xavier_uniform_(self.fc.weight)
         nn.init.zeros_(self.fc.bias)
 
     def forward(self, x):
-        """
-        x: [B, 3, 112, 112]
-        返回: [B, 512] L2归一化特征向量
-        """
-        x = self.backbone(x)  # [B, 2048, 4, 4]
+        x = self.backbone(x)    # [B, 2048, 4, 4]
         x = self.bn1(x)
-        x = self.gap(x)  # [B, 2048, 1, 1]
-        x = x.view(x.size(0), -1)  # [B, 2048]
-        x = self.fc(x)  # [B, 512]
-        x = self.bn2(x)
 
-        # L2 归一化（使得后续余弦相似度计算有意义）
+        # 插入 CBAM
+        if self.use_cbam:
+            x = self.cbam(x)
+
+        x = self.gap(x)         # [B, 2048, 1, 1]
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        x = self.bn2(x)
         x = F.normalize(x, dim=1)
         return x
 
